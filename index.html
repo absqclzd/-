@@ -1,0 +1,98 @@
+<html>
+
+<head>
+    <meta charset="utf8">
+    <title>双向数据绑定</title>
+</head>
+
+<body>
+    <div id="app">
+        <h1>双向数据绑定</h1>
+        <div>
+            <div v-text="mytext"></div>
+            <input v-model="mytext">
+        </div>
+    </div>
+</body>
+<script>
+    class Vue {
+        constructor(options) {
+            console.log(123);
+            this.options = options;
+            this.$el = document.querySelector(options.el);
+            this.$data = options.data;
+            this._directives = {};
+            this.Observe(this.$data);
+            this.Compile(this.$el);
+
+        }
+        Observe(data) { //动态劫持
+            for (let key in data) {
+                this._directives[key] = [];
+                let oldValue = data[key];
+                let _this = this._directives[key];
+                Object.defineProperty(this.$data, key, {
+                    get: function() {
+                        return oldValue;
+                    },
+                    set: function(newVal) {
+                        if (oldValue !== newVal) {
+                            oldValue = newVal;
+                            _this.forEach(element => { //遍历订阅者的实例
+                                element.update();
+                            });
+                        }
+                    }
+                })
+            }
+
+        }
+        Compile(el) { //解析指令
+            let nodes = el.children;
+            for (let i = 0; i < nodes.length; i++) {
+                let node = nodes[i];
+                if (node.children.length) { //递归子类
+                    this.Compile(node);
+                }
+                if (node.hasAttribute("v-text")) {
+                    console.log(321);
+                    let attrVal = node.getAttribute("v-text");
+                    this._directives[attrVal].push(new Watcher(node, attrVal, this, "innerHTML")); //添加订阅者
+                }
+                if (node.hasAttribute("v-model")) {
+                    let attrVal = node.getAttribute("v-model");
+                    this._directives[attrVal].push(new Watcher(node, attrVal, this, "value")); //添加订阅者
+                    let _this = this;
+                    node.addEventListener("input", (function() {
+                        return function() {
+                            //console.log(node.value);
+                            _this.$data[attrVal] = node.value;
+                        }
+                    })());
+                }
+            }
+
+        }
+    }
+    class Watcher {
+        constructor(el, name, mySelf, attr) {
+            this.el = el;
+            this.name = name;
+            this.mySelf = mySelf;
+            this.attr = attr;
+            this.update();
+        }
+        update() {
+            this.el[this.attr] = this.mySelf.$data[this.name];
+        }
+    }
+
+    let app = new Vue({
+        el: "#app",
+        data: {
+            mytext: "hello world"
+        }
+    })
+</script>
+
+</html>
